@@ -87,7 +87,7 @@ struct DSU {
         if(sz[rx] < sz[ry]) swap(rx,ry);
         fa[ry] = rx;
         xr[ry] = dx^dy^w;//ry----y-x-----rx 
-        
+
         sz[rx] += sz[ry];
         lb[rx].mergeForm(lb[ry]);
     }
@@ -103,23 +103,7 @@ struct DSU {
 
 
 void solve() {
-    cin>>n>>m;
-    DSU dsu(n);
-    for(int i=1,u,v,w;i<=m;i++) {
-        cin>>u>>v>>w;
-        dsu.add(u,v,w);
-    }
-    cin>>q;
-    while(q--) {
-        int t,x,y,z;cin>>t;
-        if(t == 1) {
-            cin>>x>>y;
-            cout << dsu.query(x,y) << endl;
-        } else {
-            cin>>x>>y>>z;
-            dsu.add(x,y,z);
-        }
-    }
+    
 }
 
 /*
