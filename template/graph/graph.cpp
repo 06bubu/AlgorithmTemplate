@@ -187,6 +187,171 @@ public:
     // reverse(path.begin(),path.end());
 };
 
+/**
+ * 长链剖分
+ * 查/改 树上某条路径
+ * 查/改 子树所有节点
+ * LCA
+ * 查询两点路径上的第 k 个点
+ * 动态维护树上点权或边权
+ * 转化到一个区间去维护
+ */
+struct HLD {
+    int n;
+    int timer;
+    vector<vector<int>> g;
+
+    vector<int> fa;     // fa[u]：u 的父亲
+    vector<int> dep;    // dep[u]：u 的深度
+    vector<int> siz;    // siz[u]：u 子树大小
+    vector<int> son;    // son[u]：u 的重儿子
+    vector<int> top;    // top[u]：u 所在重链的链顶
+    vector<int> dfn;    // dfn[u]：u 的 DFS 序编号
+    vector<int> rnk;    // rnk[i]：DFS 序编号 i 对应的节点
+
+    HLD() {}
+
+    HLD(int n) {
+        init(n);
+    }
+
+    void init(int n_) {
+        n = n_;
+        timer = 0;
+
+        g.assign(n + 1, {});
+
+        fa.assign(n + 1, 0);
+        dep.assign(n + 1, 0);
+        siz.assign(n + 1, 0);
+        son.assign(n + 1, 0);
+        top.assign(n + 1, 0);
+        dfn.assign(n + 1, 0);
+        rnk.assign(n + 1, 0);
+    }
+
+    void addEdge(int u, int v) {
+        g[u].push_back(v);
+        g[v].push_back(u);
+    }
+
+    void dfs1(int u, int father) {
+        fa[u] = father;
+        dep[u] = dep[father] + 1;
+        siz[u] = 1;
+        son[u] = 0;
+
+        for (int v : g[u]) {
+            if (v == father) continue;
+            dfs1(v, u);
+            siz[u] += siz[v];
+            if (son[u] == 0 || siz[v] > siz[son[u]]) {
+                son[u] = v;
+            }
+        }
+    }
+
+    void dfs2(int u, int topf) {
+        top[u] = topf;
+        dfn[u] = ++timer;
+        rnk[timer] = u;
+
+        // 优先遍历重儿子
+        // 这样同一条重链上的节点 DFS 序连续
+        if (son[u]) dfs2(son[u], topf);
+        
+        // 再遍历轻儿子
+        for (int v : g[u]) {
+            if (v == fa[u] || v == son[u]) continue;
+            dfs2(v, v);
+        }
+    }
+
+    // 建完边后调用
+    void work(int root = 1) {
+        timer = 0;
+        dfs1(root, 0);
+        dfs2(root, root);
+    }
+
+    int lca(int u, int v) {
+        while (top[u] != top[v]) {
+            if (dep[top[u]] < dep[top[v]]) {
+                swap(u, v);
+            }
+            u = fa[top[u]];
+        }
+
+        return dep[u] < dep[v] ? u : v;
+    }
+
+    // 求树上两点距离，边数
+    int dist(int u, int v) {
+        int p = lca(u, v);
+        return dep[u] + dep[v] - 2 * dep[p];
+    }
+
+    // 判断 u 是否是 v 的祖先
+    bool isAncestor(int u, int v) {
+        return dfn[u] <= dfn[v] && dfn[v] <= dfn[u] + siz[u] - 1;
+    }
+
+    // 返回 u 的子树在线性序列中的区间，闭区间 [l, r]
+    pair<int, int> subtreeRange(int u) {
+        return {dfn[u], dfn[u] + siz[u] - 1};
+    }
+
+    // 从 u 往上跳 k 步
+    // k = 0 返回 u 本身
+    // 如果不存在，返回 0
+    int jump(int u, int k) {
+        if (dep[u] <= k) {
+            return 0;
+        }
+
+        int targetDepth = dep[u] - k;
+
+        while (dep[top[u]] > targetDepth) {
+            u = fa[top[u]];
+        }
+
+        // 此时 targetDepth 在 u 当前所在重链上
+        return rnk[dfn[u] - (dep[u] - targetDepth)];
+    }
+
+    // 把 u-v 路径拆成若干段 DFS 序区间
+    // 返回的每个 pair 是一个闭区间 [l, r]
+    //
+    // 如果你用线段树维护点权：
+    // 对每个 [l, r] 在线段树上查询/修改即可。
+    //
+    // 注意：
+    // 返回的区间不保证按照路径从 u 到 v 的顺序排列。
+    // 如果只做 sum/max/min 这类满足交换律的操作，没问题。
+    vector<pair<int, int>> getPathSegments(int u, int v) {
+        vector<pair<int, int>> segs;
+
+        while (top[u] != top[v]) {
+            if (dep[top[u]] < dep[top[v]]) {
+                swap(u, v);
+            }
+
+            segs.push_back({dfn[top[u]], dfn[u]});
+            u = fa[top[u]];
+        }
+
+        if (dep[u] > dep[v]) {
+            swap(u, v);
+        }
+
+        segs.push_back({dfn[u], dfn[v]});
+
+        return segs;
+    }
+};
+
+//////下边是没学会的。。。。。
+
 /***
  * 二分图最大匹配   E*sqrt(V)
  * 最大匹配 == 最小点覆盖
