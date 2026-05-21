@@ -46,6 +46,7 @@ vector<int> prefix_function(string s) {
   return pi;
 }
 
+////没学会的
 
 /**
  * AC自动机

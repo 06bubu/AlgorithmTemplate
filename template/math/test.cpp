@@ -2,83 +2,6 @@
 using namespace std;
 const int MOD = 2008;
 
-//素数的一些理论
-/***
- * 素数间隔平均间隔其实就30左右 基本上都是左
- * 10的13次方以内最多最大的也就777
- * 
- * 哥德巴赫猜想：
- * 1.任何一个大于2的偶数都可写成两个质数之和
- * 2.任何一个大于5的奇数都能被表示成三个奇质数的和
- * ---> 给定一个sum判断能不能转化到n个素数
- */
-//关于斐波那契数列的性质
-
-
-
-/**
- * 异或线性基
- */
-struct lineBasis {
-    int d[61],p[61];
-    int cnt;
-    lineBasis() {
-        memset(d,0,sizeof(d));
-        memset(p,0,sizeof(p));
-        cnt = 0;
-    }
-    bool insert(int x)
-    {
-        for (int i=60;i>=0;i--) {
-            if (x & (1LL<<i)) {
-                if (!d[i]) {
-                    d[i] = x;
-                    return true;
-                } else { 
-                    x ^= d[i];
-                }
-            }
-        }
-        return false;
-    }
-    int query_max()
-    {
-        int res = 0;
-        for (int i = 60;i>=0;i--)
-            if ((res^d[i]) > res)
-                res ^= d[i];
-        return res;
-    }
-    int query_min()
-    {
-        for (int i=0;i<=60;i++)
-            if (d[i])
-                return d[i];
-        return 0;
-    }
-    void rebuild()
-    {
-        for (int i=60;i>=0;i--)
-            for (int j=i-1;j>=0;j--)
-                if (d[i]&(1LL<<j))
-                    d[i]^=d[j];
-        for (int i=0;i<=60;i++)
-            if (d[i])
-                p[cnt++]=d[i];
-    }
-    int kthquery(int k)
-    {
-        int ret=0;
-        if (k>=(1LL<<cnt))
-            return -1;
-        for (int i=60;i>=0;i--)
-            if (k&(1LL<<i))
-                ret^=p[i];
-        return ret;
-    }
-};
-
-int inv[10000];
 int qpow(int a, int b) {
     int ans = 1 % MOD;
     while (b)
@@ -90,26 +13,61 @@ int qpow(int a, int b) {
     }
     return ans % MOD;
 }
+
 /**
- * 费马小定理--a的逆元   (a,p)=1
+ * 高斯消元
+ * 矩阵 -----> 上三角矩阵
  */
-int inv_1(int a, int p) {
-    return qpow(a, p - 2);
-}
+int det(vector<vector<int>> a, int n) {
+    int ans = 1;
 
-/***
- * 线性递推求解1-n逆元
- */
-void build(int LIMIT, int p)
-{
-    inv[1] = 1;
-    for (int i = 2; i <= LIMIT; i++)
-        inv[i] = (p - inv[p % i] * (p / i) % p);
-}
+    for (int i = 0; i < n; i++) {
+        int pivot = -1;
 
-int gcd(int a, int b)
-{
-    return b == 0 ? a : gcd(b, a % b);
+        // 找第 i 列的主元
+        for (int j = i; j < n; j++) {
+            if (a[j][i] != 0) {
+                pivot = j;
+                break;
+            }
+        }
+
+        // 没有主元，行列式为 0
+        if (pivot == -1) {
+            return 0;
+        }
+
+        // 如果主元不在当前行，就交换行
+        // 交换两行会让行列式变号
+        if (pivot != i) {
+            swap(a[pivot], a[i]);
+            ans = (MOD - ans) % MOD;
+        }
+
+        // 当前主元的逆元
+        int inv = qpow(a[i][i], MOD - 2);
+
+        // 用第 i 行消掉下面所有行的第 i 列
+        for (int j = i + 1; j < n; j++) {
+            if (a[j][i] == 0) {
+                continue;
+            }
+
+            int factor = a[j][i] * inv % MOD;
+
+            for (int k = i; k < n; k++) {
+                a[j][k] = (a[j][k] - factor * a[i][k]) % MOD;
+
+                if (a[j][k] < 0) {
+                    a[j][k] += MOD;
+                }
+            }
+        }
+
+        // 乘上当前对角线元素
+        ans = ans * a[i][i] % MOD;
+    }
+    return ans;
 }
 
 int exgcd(int a, int b, int &x, int &y) {
@@ -123,24 +81,6 @@ int exgcd(int a, int b, int &x, int &y) {
     x = y;
     y = tmp - a / b * y;
     return gcd;
-}
-
-/**
- * 欧拉函数
- */
-int euler_phi(int n)
-{ 
-    int ans = n;
-    for (int i = 2; i * i <= n; i++)
-        if (n % i == 0)
-        {
-            ans = ans / i * (i - 1);
-            while (n % i == 0)
-                n /= i;
-        }
-    if (n > 1)
-        ans = ans / n * (n - 1);
-    return ans;
 }
 
 /**
@@ -245,11 +185,71 @@ struct BigInteger {
         return c;
     }
 };
- 
 // 取最大值
 BigInteger bigMax(const BigInteger &a, const BigInteger &b) {
     return (a < b ? b : a);
 }
 
+/**
+ * 异或线性基
+ */
+struct lineBasis {
+    int d[61],p[61];
+    int cnt;
+    lineBasis() {
+        memset(d,0,sizeof(d));
+        memset(p,0,sizeof(p));
+        cnt = 0;
+    }
+    bool insert(int x)
+    {
+        for (int i=60;i>=0;i--) {
+            if (x & (1LL<<i)) {
+                if (!d[i]) {
+                    d[i] = x;
+                    return true;
+                } else { 
+                    x ^= d[i];
+                }
+            }
+        }
+        return false;
+    }
+    int query_max()
+    {
+        int res = 0;
+        for (int i = 60;i>=0;i--)
+            if ((res^d[i]) > res)
+                res ^= d[i];
+        return res;
+    }
+    int query_min()
+    {
+        for (int i=0;i<=60;i++)
+            if (d[i])
+                return d[i];
+        return 0;
+    }
+    void rebuild()
+    {
+        for (int i=60;i>=0;i--)
+            for (int j=i-1;j>=0;j--)
+                if (d[i]&(1LL<<j))
+                    d[i]^=d[j];
+        for (int i=0;i<=60;i++)
+            if (d[i])
+                p[cnt++]=d[i];
+    }
+    int kthquery(int k)
+    {
+        int ret=0;
+        if (k>=(1LL<<cnt))
+            return -1;
+        for (int i=60;i>=0;i--)
+            if (k&(1LL<<i))
+                ret^=p[i];
+        return ret;
+    }
+};
 
 

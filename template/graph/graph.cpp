@@ -4,112 +4,43 @@ using namespace std;
 const int N = 2e5 + 10;
 const int INF = 1e16;
 const int MOD = 987654321;
+/**
+ * 强连通缩点
+ */
+class Kosaraju  {
+    // g 是原图，g2 是反图
+    vector<vector<int>> g  = vector<vector<int>>(N);
+    vector<vector<int>> g2 = vector<vector<int>>(N);
+    vector<int> vis = vector<int>(N, 0);
+    vector<int> color = vector<int>(N, -1);
+    int sccCnt = 0;
+    int n;
 
-class tututu_suodian
-{
-private:
-    int n, m;
-    vector<int> e[N];
-    int low[N], dfn[N], cnt = 0;
-    int sta[N], top = 0, in_sta[N];
-
-    int scc[N], scc_num[N], num; // 所属的强连通分量编号   强连通分量的大小   强连通分量数目
-public:
-    void tarjan(int u)
-    {
-        dfn[u] = low[u] = ++cnt;
-        sta[++top] = u;
-        in_sta[u] = 1;
-        for (int v : e[u])
-        {
-            if (!dfn[v]) {
-                tarjan(v);
-                low[u] = min(low[u], low[v]);
-            } else if (in_sta[v]) {
-                low[u] = min(low[u], dfn[v]);
-            }
-        }
-        if (low[u] == dfn[u])
-        {
-            num++;
-            while (1)
-            {
-                int v = sta[top--];
-                in_sta[v] = 0;
-                scc[v] = num;
-                scc_num[num]++;
-                if (u == v)
-                    break;
-            }
-        }
-    }
-};
-
-class tar
-{
-    vector<int> edge[N];
-    int dfn[N], low[N], idx;
-    int n, m;
-    int sta[N], top, bcc;
-    vector<int> ans[N];
-
-    void tarjan1(int u, int fa)
-    {
-        dfn[u] = low[u] = ++idx;
-        sta[++top] = u;
-        int children = 0;
-        for (auto v : edge[u])
-        {
-            if (!dfn[v])
-            {
-                children++;
-                tarjan1(v, u);
-                low[u] = min(low[u], low[v]);
-                if (low[v] <= dfn[u])
-                {
-                    // 割点
-                }
-            }
-            else if (v != fa)
-            {
-                low[u] = min(low[u], dfn[v]);
-            }
-        }
-        if (u == fa && children >= 2)
-        {
-            // 是割点
-        }
+    vector<int> s;
+    void dfs1(int u) {
+        vis[u] = true;
+        for (int v : g[u])
+            if (!vis[v]) 
+                dfs1(v);
+        s.push_back(u);
     }
 
-    void tarjan(int u, int fa)
-    {
-        dfn[u] = low[u] = ++idx;
-        sta[++top] = u;
-        int children = 0;
-        for (auto v : edge[u])
-        {
-            if (!dfn[v])
-            {
-                children++;
-                tarjan(v, u);
-                low[u] = min(low[u], low[v]);
-                if (low[v] >= dfn[u])
-                {
-                    bcc++;
-                    while (sta[top + 1] != v)
-                        ans[bcc].push_back(sta[top--]);
-                    ans[bcc].push_back(u);
-                }
-            }
-            else if (v != fa)
-            {
-                low[u] = min(low[u], dfn[v]);
-            }
-        }
+    void dfs2(int u) {
+        color[u] = sccCnt;
+        for (int v : g2[u])
+            if (!color[v]) 
+                dfs2(v);
+    }
 
-        if (fa == u && children == 0)
-        {
-            ans[++bcc].push_back(u);
+    void kosaraju() {
+    sccCnt = 0;
+    for (int i = 1; i <= n; ++i)
+        if (!vis[i]) 
+            dfs1(i);
+    for (int i = n; i >= 1; --i)
+        if (!color[s[i]]) {
+            ++sccCnt;
+            dfs2(s[i]);
         }
     }
 };
@@ -188,25 +119,19 @@ public:
 };
 
 /**
- * 长链剖分
- * 查/改 树上某条路径
- * 查/改 子树所有节点
- * LCA
- * 查询两点路径上的第 k 个点
- * 动态维护树上点权或边权
- * 转化到一个区间去维护
+ * 重剖
  */
 struct HLD {
     int n;
     int timer;
     vector<vector<int>> g;
 
-    vector<int> fa;     // fa[u]：u 的父亲
-    vector<int> dep;    // dep[u]：u 的深度
-    vector<int> siz;    // siz[u]：u 子树大小
-    vector<int> son;    // son[u]：u 的重儿子
-    vector<int> top;    // top[u]：u 所在重链的链顶
-    vector<int> dfn;    // dfn[u]：u 的 DFS 序编号
+    vector<int> fa;
+    vector<int> dep;
+    vector<int> siz;
+    vector<int> son; 
+    vector<int> top;    // 链顶
+    vector<int> dfn;    // dfn[u]：u 的 DFS 序编号 线段树中编号
     vector<int> rnk;    // rnk[i]：DFS 序编号 i 对应的节点
 
     HLD() {}
@@ -267,7 +192,6 @@ struct HLD {
         }
     }
 
-    // 建完边后调用
     void work(int root = 1) {
         timer = 0;
         dfs1(root, 0);
@@ -285,18 +209,15 @@ struct HLD {
         return dep[u] < dep[v] ? u : v;
     }
 
-    // 求树上两点距离，边数
     int dist(int u, int v) {
         int p = lca(u, v);
         return dep[u] + dep[v] - 2 * dep[p];
     }
 
-    // 判断 u 是否是 v 的祖先
     bool isAncestor(int u, int v) {
         return dfn[u] <= dfn[v] && dfn[v] <= dfn[u] + siz[u] - 1;
     }
 
-    // 返回 u 的子树在线性序列中的区间，闭区间 [l, r]
     pair<int, int> subtreeRange(int u) {
         return {dfn[u], dfn[u] + siz[u] - 1};
     }
@@ -319,36 +240,22 @@ struct HLD {
         return rnk[dfn[u] - (dep[u] - targetDepth)];
     }
 
-    // 把 u-v 路径拆成若干段 DFS 序区间
-    // 返回的每个 pair 是一个闭区间 [l, r]
-    //
-    // 如果你用线段树维护点权：
-    // 对每个 [l, r] 在线段树上查询/修改即可。
-    //
-    // 注意：
     // 返回的区间不保证按照路径从 u 到 v 的顺序排列。
-    // 如果只做 sum/max/min 这类满足交换律的操作，没问题。
     vector<pair<int, int>> getPathSegments(int u, int v) {
         vector<pair<int, int>> segs;
 
         while (top[u] != top[v]) {
-            if (dep[top[u]] < dep[top[v]]) {
-                swap(u, v);
-            }
-
+            if (dep[top[u]] < dep[top[v]]) swap(u, v);
             segs.push_back({dfn[top[u]], dfn[u]});
             u = fa[top[u]];
         }
 
-        if (dep[u] > dep[v]) {
-            swap(u, v);
-        }
-
+        if (dep[u] > dep[v]) swap(u, v);
         segs.push_back({dfn[u], dfn[v]});
-
         return segs;
     }
 };
+
 
 //////下边是没学会的。。。。。
 
@@ -430,7 +337,6 @@ struct HopcroftKarp {
         return matching;
     }
 };
-
 
 /**
  * 支配树 Dominator Tree

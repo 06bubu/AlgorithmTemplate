@@ -44,11 +44,8 @@ vector<Point> convexHull(vector<Point> p) {
     p.erase(unique(p.begin(), p.end()), p.end());
 
     int n = p.size();
-
     if (n <= 1) return p;
-
     vector<Point> lower, upper;
-    // 求下凸壳
     for (auto pt : p) {
         while (lower.size() >= 2 &&
                cross(lower[lower.size() - 2], lower.back(), pt) <= 0) {
@@ -57,7 +54,6 @@ vector<Point> convexHull(vector<Point> p) {
         lower.push_back(pt);
     }
 
-    // 求上凸壳
     for (int i = n - 1; i >= 0; i--) {
         Point pt = p[i];
 
@@ -68,12 +64,9 @@ vector<Point> convexHull(vector<Point> p) {
         upper.push_back(pt);
     }
 
-    // lower 和 upper 首尾会重复，需要删掉
     lower.pop_back();
     upper.pop_back();
 
-    // 拼起来
     lower.insert(lower.end(), upper.begin(), upper.end());
-
     return lower;
 }

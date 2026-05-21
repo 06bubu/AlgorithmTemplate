@@ -16,7 +16,6 @@ int n, m, q;
 
 /***
  * 并查集
- * 连通块最值哦
  */
 class DSU {
 private:
@@ -93,97 +92,6 @@ public:
         return res;
     }
 };
-
-/**
- *  线段树维护区间相加  
- *  区间相乘
- *  区间和
- */ 
-struct Tree
-{
-    struct aa{
-        int l, r, sum, tag_add, tag_mul;
-    }seg[N*4];
-    void pushup(int id)
-    {
-        seg[id].sum = seg[id<<1].sum + seg[id<<1|1].sum;
-    }
-    void pushdown(int id)
-    {
-        int mid = (seg[id].r + seg[id].l) >> 1;
-        int l_len = mid - seg[id].l + 1;
-        int r_len = seg[id].r - mid;
-        if(seg[id].tag_mul != 1) {
-            seg[id<<1].tag_add *= seg[id].tag_mul;
-            seg[id<<1|1].tag_add *= seg[id].tag_mul;
-            seg[id<<1].tag_mul *= seg[id].tag_mul;
-            seg[id<<1|1].tag_mul *= seg[id].tag_mul;
-            seg[id<<1].sum *= seg[id].tag_mul;
-            seg[id<<1|1].sum *= seg[id].tag_mul;
-            
-            seg[id].tag_mul = 1;
-        }
-        if(seg[id].tag_add != 0)
-        {
-            seg[id<<1].sum += l_len * seg[id].tag_add;
-            seg[id<<1|1].sum += r_len * seg[id].tag_add;
-            seg[id<<1].tag_add += seg[id].tag_add;
-            seg[id<<1|1].tag_add += seg[id].tag_add;
-
-            seg[id].tag_add = 0;
-        }
-    }
-    void build(int l,int r,int id)
-    {
-        seg[id] = {l,r,0,0,1};
-        if(l == r) {
-            return;
-        }
-        int mid = (l+r)>>1;
-        build(l,mid,id<<1);
-        build(mid+1,r,id<<1|1);
-        pushup(id);
-    }
-    void modify_add(int l,int r,int id,int x)
-    {
-        if(l<=seg[id].l && seg[id].r <= r) {
-            seg[id].tag_add += x;
-            seg[id].sum += (seg[id].r-seg[id].l+1)*x;
-            return;
-        }
-        pushdown(id);
-        int mid = (seg[id].l + seg[id].r)>>1;
-        if(l <= mid) modify_add(l,r,id<<1,x);
-        if(r >  mid) modify_add(l,r,id<<1|1,x);
-        pushup(id);
-    }
-    void modify_mul(int l,int r,int id,int x)
-    {
-        if(l<=seg[id].l && seg[id].r <= r) {
-            seg[id].tag_add *= x;
-            seg[id].tag_mul *= x;
-            seg[id].sum *= x;
-            return;
-        }
-        pushdown(id);
-        int mid = (seg[id].l + seg[id].r)>>1;
-        if(l <= mid) modify_mul(l,r,id<<1,x);
-        if(r >  mid) modify_mul(l,r,id<<1|1,x);
-        pushup(id);
-    }
-    int query(int l,int r,int id)
-    {
-        if(l<=seg[id].l && seg[id].r <= r) {
-            return seg[id].sum;
-        }
-        int res = 0;
-        int mid = (seg[id].l + seg[id].r)>>1;
-        pushdown(id);
-        if(l <= mid) res += query(l,r,id<<1);
-        if(r >  mid) res += query(l,r,id<<1|1);
-        return res;
-    }
-} Segment_Tree;
 
 /**
  * 线段树维护区间相加
@@ -282,12 +190,172 @@ struct Tree
     }
 } Segment_Tree;
 
+/**
+ * 珂朵莉树
+ */
+struct ODT {
+    struct Node {
+        int l, r;
+        mutable int v;
+
+        Node(int _l, int _r = -1, int _v = 0) {
+            l = _l;
+            r = _r;
+            v = _v;
+        }
+
+        bool operator < (const Node& other) const {
+            return l < other.l;
+        }
+    };
+
+    int n;
+    set<Node> s;
+
+    void clear() {
+        s.clear();
+    }
+//把 ODT 初始化成一个长度为 _n、所有位置初值都是 0 的序列。
+    void init(int _n) {
+        n = _n;
+        s.clear();
+        s.insert(Node(1, n, 0));
+        s.insert(Node(n + 1, n + 1, 0));
+    }
+
+    void build(vector<int>& a, int _n) {
+        n = _n;
+        s.clear();
+
+        for (int i = 1; i <= n; ) {
+            int j = i;
+            int v = a[i];
+            while (j+1 <= n && a[j+1]-(j+1) == a[i]) j++;
+
+            s.insert(Node(i, j, v));
+            i = j + 1;
+        }
+
+        s.insert(Node(n + 1, n + 1, 0));
+    }
+    //[y    ]y
+    auto split(int pos) {
+        if (pos > n) return s.find(Node(n + 1));
+
+        auto it = s.lower_bound(Node(pos));
+        if (it != s.end() && it->l == pos) {
+            return it;
+        }
+
+        --it;
+
+        int l = it->l;
+        int r = it->r;
+        int v = it->v;
+
+        s.erase(it);
+        s.insert(Node(l, pos - 1, v));
+        return s.insert(Node(pos, r, v)).first;
+    }
+
+    void assign(int l, int r, int d) {
+        if (l > r) return;
+
+        auto itr = split(r + 1);
+        auto itl = split(l);
+
+        s.erase(itl, itr);
+        s.insert(Node(l, r, d-l));
+    }
+
+    void add(int l, int r, int v) {
+        if (l > r) return;
+
+        auto itr = split(r + 1);
+        auto itl = split(l);
+
+        for (auto it = itl; it != itr; ++it) {
+            it->v += v;
+        }
+    }
+
+    int query_sum(int l, int r) {
+        if (l > r) return 0;
+
+        auto itr = split(r + 1);
+        auto itl = split(l);
+
+        int ans = 0;
+
+        for (auto it = itl; it != itr; ++it) {
+            ans += 1LL * (it->r - it->l + 1) * it->v;
+        }
+
+        return ans;
+    }
+
+    int kth(int l, int r, int k) {
+        auto itr = split(r + 1);
+        auto itl = split(l);
+
+        vector<pair<int, int>> vec;
+
+        for (auto it = itl; it != itr; ++it) {
+            vec.push_back({it->v, it->r - it->l + 1});
+        }
+
+        sort(vec.begin(), vec.end());
+
+        for (auto [v, cnt] : vec) {
+            if (k > cnt) {
+                k -= cnt;
+            } else {
+                return v;
+            }
+        }
+
+        return -1;
+    }
+
+    int qpow(int a, int b, int mod) {
+        int res = 1 % mod;
+        a %= mod;
+
+        while (b) {
+            if (b & 1) res = res * a % mod;
+            a = a * a % mod;
+            b >>= 1;
+        }
+
+        return res;
+    }
+
+    int query_sum_pow(int l, int r, int x, int mod) {
+        auto itr = split(r + 1);
+        auto itl = split(l);
+
+        int ans = 0;
+
+        for (auto it = itl; it != itr; ++it) {
+            int cnt = it->r - it->l + 1;
+            ans = (ans + cnt % mod * qpow(it->v, x, mod)) % mod;
+        }
+
+        return ans;
+    }
+} Odt;
+
+
+////没学会的
+
+
 /*** 
  * 笛卡尔树
  */
 struct Tree {
 
 };
+
 
 /***
  * Treap
@@ -446,11 +514,4 @@ struct Treap {
 
         return ans;
     }
-};
-
-/***
- * 珂朵莉
- */
-struct keDuoLiTree {
-
 };
