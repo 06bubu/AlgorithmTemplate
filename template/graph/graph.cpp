@@ -5,43 +5,291 @@ const int N = 2e5 + 10;
 const int INF = 1e16;
 const int MOD = 987654321;
 /**
- * 强连通缩点
+ * 有向图缩点
  */
-class Kosaraju  {
-    // g 是原图，g2 是反图
-    vector<vector<int>> g  = vector<vector<int>>(N);
-    vector<vector<int>> g2 = vector<vector<int>>(N);
-    vector<int> vis = vector<int>(N, 0);
-    vector<int> color = vector<int>(N, -1);
-    int sccCnt = 0;
+class Kosaraju {
+private:
     int n;
 
+    // g 是原图，g2 是反图
+    vector<vector<int>> g;
+    vector<vector<int>> g2;
+
+    vector<int> vis;
+    vector<int> color;
+
+    // 按 DFS 完成时间排序
     vector<int> s;
+
+    int sccCnt = 0;
+
+    // 缩点后的 DAG
+    vector<vector<int>> dag;
+
+private:
     void dfs1(int u) {
         vis[u] = true;
-        for (int v : g[u])
-            if (!vis[v]) 
+
+        for (int v : g[u]) {
+            if (!vis[v]) {
                 dfs1(v);
+            }
+        }
+
         s.push_back(u);
     }
 
     void dfs2(int u) {
         color[u] = sccCnt;
-        for (int v : g2[u])
-            if (!color[v]) 
+
+        for (int v : g2[u]) {
+            if (color[v] == -1) {
                 dfs2(v);
+            }
+        }
+    }
+
+public:
+    Kosaraju(int n) : n(n) {
+        g.resize(n + 1);
+        g2.resize(n + 1);
+        vis.assign(n + 1, false);
+        color.assign(n + 1, -1);
+    }
+
+    void addEdge(int u, int v) {
+        g[u].push_back(v);
+        g2[v].push_back(u);
     }
 
     void kosaraju() {
-    sccCnt = 0;
-    for (int i = 1; i <= n; ++i)
-        if (!vis[i]) 
-            dfs1(i);
-    for (int i = n; i >= 1; --i)
-        if (!color[s[i]]) {
-            ++sccCnt;
-            dfs2(s[i]);
+        sccCnt = 0;
+        s.clear();
+
+        fill(vis.begin(), vis.end(), false);
+        fill(color.begin(), color.end(), -1);
+
+        // 第一次 DFS，得到完成时间序列
+        for (int i = 1; i <= n; ++i) {
+            if (!vis[i]) {
+                dfs1(i);
+            }
         }
+
+        // 按完成时间从大到小处理反图
+        for (int i = n - 1; i >= 0; --i) {
+            int u = s[i];
+
+            if (color[u] == -1) {
+                ++sccCnt;
+                dfs2(u);
+            }
+        }
+    }
+
+    /**
+     * 重构缩点后的图
+     *
+     * 返回值：
+     * dag[i] 表示第 i 个 SCC 可以到达的 SCC
+     *
+     * SCC 编号范围：1 ~ sccCnt
+     */
+    void rebuildGraph() {
+        dag.assign(sccCnt + 1, {});
+
+        for (int u = 1; u <= n; ++u) {
+            for (int v : g[u]) {
+                int cu = color[u];
+                int cv = color[v];
+
+                // 同一个 SCC 内部的边不需要保留
+                if (cu != cv) {
+                    dag[cu].push_back(cv);
+                }
+            }
+        }
+
+        // 去重，避免缩点图中出现重复边
+        for (int i = 1; i <= sccCnt; ++i) {
+            sort(dag[i].begin(), dag[i].end());
+            dag[i].erase(
+                unique(dag[i].begin(), dag[i].end()),
+                dag[i].end()
+            );
+        }
+    }
+
+    // 获取每个原图顶点所属的 SCC 编号
+    const vector<int>& getColor() const {
+        return color;
+    }
+
+    // 获取 SCC 数量
+    int getSccCount() const {
+        return sccCnt;
+    }
+
+    // 获取缩点后的 DAG
+    const vector<vector<int>>& getDag() const {
+        return dag;
+    }
+};
+/**
+ * 无向图缩点
+ * 边双连通分量----割边
+ */
+class EdgeBCC {
+public:
+    struct Edge {
+        int from;
+        int to;
+    };
+ 
+    int n;
+    int timer = 0;
+    int componentCount = 0;
+    vector<Edge> edges;
+    // g[u] 中保存与 u 相连的无向边编号
+    vector<vector<int>> g;
+    vector<int> dfn;
+    vector<int> low;
+    // isBridge[id] 表示第 id 条无向边是不是桥
+    vector<bool> isBridge;
+    // component[u] 表示节点 u 所属的边双连通分量
+    vector<int> component;
+ 
+    void tarjan(int u, int parentEdge) {
+        dfn[u] = low[u] = ++timer;
+ 
+        for (int edgeId : g[u]) {
+            const auto &[from, to] = edges[edgeId];
+            int v = from ^ to ^ u;
+ 
+            // 不能沿着进入 u 的同一条无向边走回去
+            if (edgeId == parentEdge) {
+                continue;
+            }
+ 
+            if (!dfn[v]) {
+                tarjan(v, edgeId);
+ 
+                low[u] = min(low[u], low[v]);
+ 
+                if (low[v] > dfn[u]) {
+                    isBridge[edgeId] = true;
+                }
+            } else {
+                low[u] = min(low[u], dfn[v]);
+            }
+        }
+    }
+ 
+    // 忽略所有桥，对边双连通分量染色
+    void dfsComponent(int u, int color) {
+        component[u] = color;
+ 
+        for (int edgeId : g[u]) {
+            if (isBridge[edgeId]) {
+                continue;
+            }
+ 
+            const auto &[from, to] = edges[edgeId];
+            int v = from ^ to ^ u;
+ 
+            if (!component[v]) {
+                dfsComponent(v, color);
+            }
+        }
+    }
+ 
+public:
+    explicit EdgeBCC(int n)
+        : n(n),
+          g(n + 1),
+          dfn(n + 1, 0),
+          low(n + 1, 0),
+          component(n + 1, 0) {}
+ 
+    void addEdge(int u, int v) {
+        int edgeId = (int)edges.size();
+ 
+        edges.push_back({u, v});
+        g[u].push_back(edgeId);
+        g[v].push_back(edgeId);
+ 
+        isBridge.push_back(false);
+    }
+ 
+    int run() {
+        timer = 0;
+        componentCount = 0;
+ 
+        fill(dfn.begin(), dfn.end(), 0);
+        fill(low.begin(), low.end(), 0);
+        fill(component.begin(), component.end(), 0);
+        fill(isBridge.begin(), isBridge.end(), false);
+ 
+        // 图可能不连通，每个连通部分都要执行 Tarjan
+        for (int u = 1; u <= n; ++u) {
+            if (!dfn[u]) {
+                tarjan(u, -1);
+            }
+        }
+ 
+        // 删除所有桥后，对剩余连通块染色
+        for (int u = 1; u <= n; ++u) {
+            if (!component[u]) {
+                ++componentCount;
+                dfsComponent(u, componentCount);
+            }
+        }
+ 
+        return componentCount;
+    }
+ 
+    int getComponent(int u) const {
+        return component[u];
+    }
+ 
+    const vector<int>& getComponents() const {
+        return component;
+    }
+ 
+    bool bridge(int edgeId) const {
+        return isBridge[edgeId];
+    }
+ 
+    int edgeCount() const {
+        return (int)edges.size();
+    }
+ 
+    pair<int, int> getEdge(int edgeId) const {
+        return {edges[edgeId].from, edges[edgeId].to};
+    }
+ 
+    int count() const {
+        return componentCount;
+    }
+ 
+    // 构建缩点图
+    vector<vector<int>> buildCompressedGraph() const {
+        vector<vector<int>> tree(componentCount + 1);
+ 
+        for (int edgeId = 0; edgeId < (int)edges.size(); ++edgeId) {
+            int u = edges[edgeId].from;
+            int v = edges[edgeId].to;
+ 
+            int componentU = component[u];
+            int componentV = component[v];
+ 
+            if (componentU != componentV) {
+                tree[componentU].push_back(componentV);
+                tree[componentV].push_back(componentU);
+            }
+        }
+ 
+        return tree;
     }
 };
 
@@ -95,7 +343,7 @@ public:
 /***
  * 欧拉回路：度数全部都是偶数 然后随便一个起点就可以--->欧拉图
  * 欧拉路径：仅存在两个度数为奇数的结点然后这俩一个起点一个终点--->半欧拉图
- * 然后如果要保存路径的话注意是 后序存储
+ * 可以处理重边和自环
  */
 class Eulerian {
 private:
@@ -255,7 +503,6 @@ struct HLD {
         return segs;
     }
 };
-
 
 //////下边是没学会的。。。。。
 

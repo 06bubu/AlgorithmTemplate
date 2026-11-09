@@ -94,6 +94,53 @@ public:
 };
 
 /**
+ * 可撤销并查集
+ */
+struct DSU
+{
+    int fa[100];
+    int sz[100];
+    vector<pair<int&, int>>his_sz;
+    vector<pair<int&, int>>his_fa;
+    void init(int n) {
+        for (int i = 1; i <= n; i++)
+            fa[i] = i, sz[i] = 1;
+    }
+    int find(int x) {
+        while (x != fa[x])  
+            x = fa[x];
+        return x;
+    }
+    bool same(int u, int v) {
+        return find(u) == find(v);
+    }
+    void merge(int u, int v) {
+        int x = find(u);
+        int y = find(v);
+        if (x == y) return;
+        if (sz[x] < sz[y]) std::swap(x, y);
+        his_sz.push_back({ sz[x], sz[x] });
+        sz[x] = sz[x] + sz[y];
+        his_fa.push_back({ fa[y],fa[y] });
+        fa[y] = x;
+    }
+ 
+    int histroy() {
+        return his_fa.size();
+    }
+ 
+    void roll(int h) {
+        while (his_fa.size() > h) {
+            his_fa.back().first = his_fa.back().second;
+            his_fa.pop_back();
+            his_sz.back().first = his_sz.back().second;
+            his_sz.pop_back();
+        }
+    }
+    
+};
+
+/**
  * 线段树维护区间相加
  * 区间相乘
  * 区间和
@@ -106,11 +153,11 @@ struct Tree
     } seg[N << 2];
 
     void pushup(int id) {
-        seg[id].sum = (seg[id << 1].sum + seg[id << 1 | 1].sum) % MOD;
+        seg[id].sum = (seg[id<<1].sum+seg[id<<1|1].sum)%MOD;
     }
 
     void pushdown(int id) {
-        int mid = (seg[id].r + seg[id].l) >> 1;
+        int mid = (seg[id].r+seg[id].l)>>1;
         int l_len = mid - seg[id].l + 1;
         int r_len = seg[id].r - mid;
 
@@ -121,18 +168,18 @@ struct Tree
             seg[id<<1].tag_mul = seg[id<<1].tag_mul * seg[id].tag_mul % MOD;
             seg[id<<1|1].tag_mul = seg[id << 1 | 1].tag_mul * seg[id].tag_mul % MOD;
 
-            seg[id << 1].sum = seg[id << 1].sum * seg[id].tag_mul % MOD;
-            seg[id << 1 | 1].sum = seg[id << 1 | 1].sum * seg[id].tag_mul % MOD;
+            seg[id<<1].sum = seg[id<<1].sum * seg[id].tag_mul % MOD;
+            seg[id<<1|1].sum = seg[id<<1|1].sum * seg[id].tag_mul % MOD;
 
             seg[id].tag_mul = 1;
         }
 
         if (seg[id].tag_add != 0) {
-            seg[id << 1].sum = (seg[id << 1].sum + l_len * seg[id].tag_add) % MOD;
-            seg[id << 1 | 1].sum = (seg[id << 1 | 1].sum + r_len * seg[id].tag_add) % MOD;
+            seg[id<<1].sum = (seg[id<<1].sum + l_len*seg[id].tag_add) % MOD;
+            seg[id<<1|1].sum = (seg[id<<1|1].sum + r_len*seg[id].tag_add) % MOD;
 
-            seg[id << 1].tag_add = (seg[id << 1].tag_add + seg[id].tag_add) % MOD;
-            seg[id << 1 | 1].tag_add = (seg[id << 1 | 1].tag_add + seg[id].tag_add) % MOD;
+            seg[id<<1].tag_add = (seg[id<<1].tag_add + seg[id].tag_add) % MOD;
+            seg[id<<1|1].tag_add = (seg[id<<1|1].tag_add + seg[id].tag_add) % MOD;
 
             seg[id].tag_add = 0;
         }
@@ -141,7 +188,7 @@ struct Tree
     void build(int l, int r, int id) {
         seg[id] = {l, r, 0, 0, 1};
         if (l == r) {
-            if (l == 1) seg[id].sum = 1;
+            seg[id].sum = 1;
             return;
         }
         int mid = (l + r) >> 1;
@@ -212,15 +259,18 @@ struct ODT {
     int n;
     set<Node> s;
 
+    using IT = set<Node>::iterator;
+
     void clear() {
         s.clear();
     }
-//把 ODT 初始化成一个长度为 _n、所有位置初值都是 0 的序列。
+
+    // 初始化为长度 n，所有位置都是 0
     void init(int _n) {
         n = _n;
         s.clear();
         s.insert(Node(1, n, 0));
-        s.insert(Node(n + 1, n + 1, 0));
+        s.insert(Node(n + 1, n + 1, 0)); // 哨兵
     }
 
     void build(vector<int>& a, int _n) {
@@ -229,20 +279,24 @@ struct ODT {
 
         for (int i = 1; i <= n; ) {
             int j = i;
-            int v = a[i];
-            while (j+1 <= n && a[j+1]-(j+1) == a[i]) j++;
-
-            s.insert(Node(i, j, v));
+            while (j + 1 <= n && a[j + 1] == a[i]) 
+                j++;
+            
+            s.insert(Node(i, j, a[i]));
             i = j + 1;
         }
 
-        s.insert(Node(n + 1, n + 1, 0));
+        s.insert(Node(n + 1, n + 1, 0)); // 哨兵
     }
-    //[y    ]y
-    auto split(int pos) {
-        if (pos > n) return s.find(Node(n + 1));
+
+    // 如果 pos 在某段中间，就把那一段切成 [l,pos-1] 和 [pos,r]
+    IT split(int pos) {
+        if (pos > n) {
+            return s.find(Node(n + 1));
+        }
 
         auto it = s.lower_bound(Node(pos));
+
         if (it != s.end() && it->l == pos) {
             return it;
         }
@@ -254,10 +308,73 @@ struct ODT {
         int v = it->v;
 
         s.erase(it);
+
         s.insert(Node(l, pos - 1, v));
         return s.insert(Node(pos, r, v)).first;
     }
 
+    // 判断两个相邻段能不能合并
+    bool can_merge(IT a, IT b) {
+        if (a == s.end() || b == s.end()) return false;
+
+        // 不要和哨兵合并
+        if (a->l == n + 1 || b->l == n + 1) return false;
+
+        return a->r + 1 == b->l && a->v == b->v;
+    }
+
+    // 合并 it 所在段和左右相邻同值段
+    IT merge_it(IT it) {
+        if (it == s.end()) return it;
+        if (it->l == n + 1) return it;
+
+        // 先尝试和左边合并
+        if (it != s.begin()) {
+            auto pre = prev(it);
+
+            if (can_merge(pre, it)) {
+                int l = pre->l;
+                int r = it->r;
+                int v = it->v;
+
+                s.erase(pre);
+                s.erase(it);
+
+                it = s.insert(Node(l, r, v)).first;
+            }
+        }
+
+        // 再不断尝试和右边合并
+        while (true) {
+            auto nxt = next(it);
+
+            if (!can_merge(it, nxt)) break;
+
+            int l = it->l;
+            int r = nxt->r;
+            int v = it->v;
+
+            s.erase(it);
+            s.erase(nxt);
+
+            it = s.insert(Node(l, r, v)).first;
+        }
+
+        return it;
+    }
+
+    // 按位置找到所在段，然后合并
+    void merge_pos(int pos) {
+        if (s.empty()) return;
+
+        if (pos < 1) pos = 1;
+        if (pos > n) pos = n;
+
+        auto it = prev(s.upper_bound(Node(pos)));
+        merge_it(it);
+    }
+
+    // 区间赋值：[l, r] 全部变成 d
     void assign(int l, int r, int d) {
         if (l > r) return;
 
@@ -265,9 +382,13 @@ struct ODT {
         auto itl = split(l);
 
         s.erase(itl, itr);
-        s.insert(Node(l, r, d-l));
+
+        auto it = s.insert(Node(l, r, d)).first;
+
+        merge_it(it);
     }
 
+    // 区间加：[l, r] 每个数加 v
     void add(int l, int r, int v) {
         if (l > r) return;
 
@@ -277,8 +398,13 @@ struct ODT {
         for (auto it = itl; it != itr; ++it) {
             it->v += v;
         }
+
+        // 加法只可能让边界处出现新的可合并段
+        merge_pos(l);
+        merge_pos(r);
     }
 
+    // 查询区间和
     int query_sum(int l, int r) {
         if (l > r) return 0;
 
@@ -291,10 +417,17 @@ struct ODT {
             ans += 1LL * (it->r - it->l + 1) * it->v;
         }
 
+        // 查询本身不改值，但 split 会制造碎段，所以查完顺手合并
+        merge_pos(l);
+        merge_pos(r);
+
         return ans;
     }
 
+    // 查询区间第 k 小
     int kth(int l, int r, int k) {
+        if (l > r) return -1;
+
         auto itr = split(r + 1);
         auto itl = split(l);
 
@@ -306,18 +439,27 @@ struct ODT {
 
         sort(vec.begin(), vec.end());
 
+        int ans = -1;
+
         for (auto [v, cnt] : vec) {
             if (k > cnt) {
                 k -= cnt;
             } else {
-                return v;
+                ans = v;
+                break;
             }
         }
 
-        return -1;
+        // 查询后恢复合并
+        merge_pos(l);
+        merge_pos(r);
+
+        return ans;
     }
 
     int qpow(int a, int b, int mod) {
+        if (mod == 1) return 0;
+
         int res = 1 % mod;
         a %= mod;
 
@@ -330,7 +472,10 @@ struct ODT {
         return res;
     }
 
+    // 查询 sum(a[i]^x) mod mod
     int query_sum_pow(int l, int r, int x, int mod) {
+        if (l > r) return 0;
+
         auto itr = split(r + 1);
         auto itl = split(l);
 
@@ -341,9 +486,133 @@ struct ODT {
             ans = (ans + cnt % mod * qpow(it->v, x, mod)) % mod;
         }
 
+        // 查询后恢复合并
+        merge_pos(l);
+        merge_pos(r);
+
         return ans;
     }
+
+    // 调试用：打印所有段
+    void debug() {
+        for (auto it = s.begin(); it != s.end(); ++it) {
+            if (it->l == n + 1) continue;
+            cerr << "[" << it->l << "," << it->r << "] = " << it->v << '\n';
+        }
+        cerr << "-------------------\n";
+    }
 } Odt;
+
+
+/*
+
+线段树操作：
+区间和  单点改  区间改
+查询最大值所在的最左下标
+返回最大的k个数字的总和
+
+struct Tree{
+    struct aa {
+        int l, r, sum, mx;
+    };
+    int t;//货架位置数
+    vector<int> a;//保质期
+    vector<int> b;//数量
+    vector<aa> seg;
+
+    void init(int num) {
+        t  = num;
+        seg.resize(t<<2);
+    }
+
+    void pushup(int id) {
+        seg[id].sum = seg[id<<1].sum + seg[id<<1|1].sum;
+        seg[id].mx = max(seg[id<<1].mx ,seg[id<<1|1].mx);
+    }
+
+    void build(int l, int r, int id) {
+        seg[id] = {l, r, 0, 0};
+        if (l == r) {
+            seg[id].sum = b[l];
+            seg[id].mx = a[l];
+            return;
+        }
+        int mid = (l + r) >> 1;
+        build(l, mid, id << 1);
+        build(mid + 1, r, id << 1 | 1);
+        pushup(id);
+    }
+    //删除某个位置的物品信息
+    void modify(int pos, int id) {
+        if (seg[id].l == seg[id].r) {
+            seg[id].sum = seg[id].mx = 0;
+            return;
+        }
+        int mid = (seg[id].l + seg[id].r) >> 1;
+        if (pos <= mid) modify(pos, id << 1);
+        if (pos > mid) modify(pos, id << 1 | 1);
+        pushup(id);
+    }
+    //查询区间内有多少个物品
+    int query_num(int l, int r, int id) {
+        if (l > r) return 0;
+        if (l <= seg[id].l && seg[id].r <= r) 
+            return seg[id].sum;
+
+        int res = 0;
+        int mid = (seg[id].l+seg[id].r)>>1;
+        if (l <= mid) res += query_num(l,r,id<<1);
+        if (r > mid) res += query_num(l,r,id<<1|1);
+        return res;
+    }
+    
+    //返回保质期最大值所在的最左的下标
+    // 查询区间 [l, r] 内的最大保质期
+    int query_max_value(int l, int r, int id) {
+        if (r < seg[id].l || seg[id].r < l)
+            return 0;
+
+        if (l <= seg[id].l && seg[id].r <= r)
+            return seg[id].mx;
+
+        return max(query_max_value(l, r, id << 1),
+                query_max_value(l, r, id << 1 | 1));
+    }
+
+    // 在区间 [l, r] 内寻找最左边的、保质期等于 target 的位置
+    int find_first_max(int l, int r, int target, int id) {
+        if (r < seg[id].l || seg[id].r < l || seg[id].mx < target)
+            return -1;
+
+        if (seg[id].l == seg[id].r)
+            return seg[id].mx == target ? seg[id].l : -1;
+
+        int pos = find_first_max(l, r, target, id << 1);
+        if (pos != -1)
+            return pos;
+
+        return find_first_max(l, r, target, id << 1 | 1);
+    }
+
+    // 返回区间 [l, r] 内保质期最大值所在的最左下标
+    int query_mx(int l, int r, int id) {
+        if (l > r)
+            return -1;
+
+        int max_value = query_max_value(l, r, id);
+
+        // mx == 0 表示区间内没有物品
+        if (max_value == 0)
+            return -1;
+
+        return find_first_max(l, r, max_value, id);
+    }
+};
+
+
+
+*/
+
 
 
 ////没学会的

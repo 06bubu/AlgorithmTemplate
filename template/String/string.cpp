@@ -6,20 +6,20 @@ using namespace  std;
  */
 struct trie {
   int nex[100000][26], cnt;
-  bool exist[100000];  // 该结点结尾的字符串是否存在
+  bool exist[100000];
 
-  void insert(string s) {  // 插入字符串
+  void insert(string s) {
     int p = 0;
     int n = s.length();
     for (int i = 0; i < n; i++) {
       int c = s[i] - 'a';
-      if (!nex[p][c]) nex[p][c] = ++cnt;  // 如果没有，就添加结点
+      if (!nex[p][c]) nex[p][c] = ++cnt;
       p = nex[p][c];
     }
     exist[p] = true;
   }
 
-  bool find(string s) {  // 查找字符串
+  bool find(string s) {
     int p = 0;
     int n = s.length();
     for (int i = 0; i < n; i++) {
@@ -32,7 +32,8 @@ struct trie {
 };
 
 /**
- * KMP算法前缀函数
+ * KMP
+ * Z函数
  */
 vector<int> prefix_function(string s) {
   int n = (int)s.length();
@@ -46,69 +47,57 @@ vector<int> prefix_function(string s) {
   return pi;
 }
 
-////没学会的
 
 /**
  * AC自动机
- * 
  */
-struct ACAutomaton {
-    struct Node {
+struct ACAutomation {
+    struct node {
         int next[26];
         int fail;
-        int out; // 这个状态能匹配到哪些模式串，用 bitmask 表示
-        Node() {
-            memset(next, 0, sizeof(next));
+        int out;
+        node() {
+            memset(next,0,sizeof(next));
             fail = 0;
             out = 0;
         }
     };
  
-    vector<Node> trie;
- 
-    ACAutomaton() {
-        trie.push_back(Node()); // 0 号点是根
+    vector<node> trie;
+    ACAutomation() {
+        trie.push_back(node());
     }
- 
-    void insert(const string &s, int id) {
+    void insert(string& s) {
         int u = 0;
-        for (char ch : s) {
-            int c = ch - 'a';
-            if (!trie[u].next[c]) {
+        for(char ch : s) {
+            int c = ch-'A';
+            if(trie[u].next[c] == 0) {
                 trie[u].next[c] = trie.size();
-                trie.push_back(Node());
+                trie.push_back(node());
             }
             u = trie[u].next[c];
         }
-        trie[u].out |= (1 << id);
+        trie[u].out = 1;
     }
- 
     void build() {
-        queue<int> q;
- 
-        // 根的第一层处理
-        for (int c = 0; c < 26; c++) {
-            int v = trie[0].next[c];
-            if (v) {
-                trie[v].fail = 0;
-                q.push(v);
+        queue<int> pq;
+        for(int c=0;c<26;c++) {
+            if(trie[0].next[c] != 0) {
+                pq.push(trie[0].next[c]);
             }
         }
- 
-        while (!q.empty()) {
-            int u = q.front();
-            q.pop();
- 
-            // fail 链上传递输出信息
+        while(pq.size()) {
+            int u = pq.front();
+            pq.pop();
             trie[u].out |= trie[trie[u].fail].out;
- 
-            for (int c = 0; c < 26; c++) {
+
+            for(int c=0;c<26;c++) {
                 int v = trie[u].next[c];
-                if (v) {
-                    trie[v].fail = trie[trie[u].fail].next[c];
-                    q.push(v);
-                } else {
+                if(v == 0) {
                     trie[u].next[c] = trie[trie[u].fail].next[c];
+                } else {
+                    trie[trie[u].next[c]].fail = trie[trie[u].fail].next[c];
+                    pq.push(trie[u].next[c]);
                 }
             }
         }
